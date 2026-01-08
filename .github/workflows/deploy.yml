@@ -1,0 +1,32 @@
+name: Deploy Flutter Web
+
+on:
+  push:
+    branches:
+      - master  # Название твоей основной ветки
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Build Web
+        run: |
+          flutter pub get
+          flutter build web --release
+
+      - name: Deploy to Server
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.SERVER_IP }}     # IP сервера
+          username: 'root' # Логин (например, root)
+          key: ${{ secrets.SSH_PRIVATE_KEY }}   # Приватный SSH ключ
+          source: "build/web/*"
+          target: "/var/www/html/chess"        # Путь к твоей папке
+          strip_components: 2

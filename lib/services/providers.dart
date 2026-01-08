@@ -1,0 +1,25 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
+
+import '../configs/config.dart';
+import '../models/game.dart';
+import 'notifiers.dart';
+
+final boardOfflineProvider = StateNotifierProvider.family<OfflineGameNotifier, GameState, GameConfig>((ref, config) {
+  return OfflineGameNotifier(config);
+});
+final boardOnlineProvider = StateNotifierProvider.family<OnlineGameNotifier, GameState, GameConfig>((ref, config) {
+  return OnlineGameNotifier(config);
+});
+
+final gameConfigProvider = Provider<GameConfig>((ref) {
+  return GameConfig(playerColors: {
+    -1: Colors.grey,
+    0: Colors.yellow,
+    1: Colors.blue,
+    2: Colors.red,
+    3: Colors.green,
+  });
+});
+
