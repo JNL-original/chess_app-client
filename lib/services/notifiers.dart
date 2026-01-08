@@ -83,7 +83,7 @@ abstract class GameBaseNotifier extends StateNotifier<GameState> {
       if(
       enemyPiece != null &&
           enemyPiece.owner != piece.owner &&
-          enemyPiece.getPossibleMoves(i, state).contains(index)
+          enemyPiece.getPossibleMoves(i, state.copyWith(board: board)).contains(index)
       ) {
         return true;
       }
@@ -92,6 +92,7 @@ abstract class GameBaseNotifier extends StateNotifier<GameState> {
   }
 
   List<int> _truePossibleMoves(int index){
+    print('check');
     ChessPiece? piece = state.board[index];
     List<ChessPiece?> draw = List<ChessPiece?>.of(state.board);
     List<int> kings = List<int>.of(state.kings);
@@ -104,7 +105,7 @@ abstract class GameBaseNotifier extends StateNotifier<GameState> {
       draw[index] = null;
       draw[move] = piece;
       if(piece.type == 'king') kings[state.currentPlayer] = move;
-      if(_onFire(state.kings[state.currentPlayer], draw)){
+      if(_onFire(kings[state.currentPlayer], draw)){
         moves.remove(move);
       }
       draw[move] = temp;
@@ -352,6 +353,8 @@ class OfflineGameNotifier extends GameBaseNotifier {
     List<ChessPiece?> board = List<ChessPiece?>.of(state.board);
     board[newRookIndex] = (board[rookIndex] as Rook).copyWith(hasMoved: true);
     board[newKingIndex] = (board[kingIndex] as King).copyWith(hasMoved: true);
+    board[rookIndex] = null;
+    board[kingIndex] = null;
     state = state.copyWith(board: board, newPlacementOfKing: newKingIndex);
   }
 }
