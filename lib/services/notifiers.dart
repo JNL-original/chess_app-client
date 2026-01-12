@@ -2,7 +2,9 @@
 import 'dart:math';
 
 import 'package:chess_app/configs/config.dart';
+import 'package:chess_app/models/bishop.dart';
 import 'package:chess_app/models/chess_piece.dart';
+import 'package:chess_app/models/knight.dart';
 import 'package:chess_app/models/queen.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
@@ -16,14 +18,15 @@ abstract class GameBaseNotifier extends StateNotifier<GameState> {
   GameBaseNotifier(super.initialBoard);
 
   bool makeMove(int fromIndex, int toIndex);
-  bool checkmate(); //проверить на мат или невозможность ходить текущего игрока
+  Stalemate? checkmate(); //проверить на мат или невозможность ходить текущего игрока
 
 
 
   void onTileTapped(int index){
     if(state.selectedIndex != -1
-        && state.availableMoves.contains(index)){
+        && state.availableMoves.contains(index) && state.status == GameStatus.active){
       if(makeMove(state.selectedIndex, index)){
+        if(state.status == GameStatus.waitingForPromotion) return;
         state = state.copyWith(selectedIndex: -1, availableMoves: [], currentPlayer: (state.currentPlayer + 1) % 4);
         _checkNextTurn();
       }
@@ -45,34 +48,80 @@ abstract class GameBaseNotifier extends StateNotifier<GameState> {
     }
   }
 
+  void continueGameAfterPromotion(ChessPiece piece){
+    //сменить статус, закончить хход, убрать индекс превращаемой пешки
+    List<ChessPiece?> board = List<ChessPiece?>.of(state.board);
+    switch(piece.type){
+      case 'pawn':
+        board[state.promotionPawn] = Pawn(owner: state.currentPlayer, hasMoved: true);
+      case 'rook':
+        board[state.promotionPawn] = Rook(owner: state.currentPlayer, hasMoved: true);
+      default:
+        board[state.promotionPawn] = piece;
+    }
+    state = state.copyWith(board: board, selectedIndex: -1, availableMoves: [], currentPlayer: (state.currentPlayer + 1) % 4, status: GameStatus.active, promotionPawn: -1);
+    _checkNextTurn();
+  }
+
   void _checkNextTurn(){
+    bool wasChange = false; //было ли доп изменение текущего игрока
     //удаление enPassant если игрок жив
     if(state.alive[state.currentPlayer]){
       state = state.copyWith(enPassant: {state.currentPlayer : [-1, -1]});
       //проверка на мат если игрок жив
-      if(checkmate()){
-        List<ChessPiece?> board = List<ChessPiece?>.of(state.board);
-        for(int i = 0; i < board.length; i++){
-          if(board[i] != null && board[i]!.owner == state.currentPlayer){
-            board[i] = board[i]!.kill();
+      switch(checkmate()){
+        case null:
+          break;
+        case Stalemate.checkmate:
+          List<ChessPiece?> board = List<ChessPiece?>.of(state.board);
+          for(int i = 0; i < board.length; i++){
+            if(board[i] != null && board[i]!.owner == state.currentPlayer){
+              board[i] = board[i]!.kill();
+            }
           }
-        }
-        state = state.copyWith(board: board, currentPlayerAlive: false, currentPlayer: (state.currentPlayer + 1) % 4);
-      };
-    }
-
-    //проверка что игра продолжается
-    if(state.alive.fold(0, (prev, alive) => prev + (alive ? 1 : 0)) > 1){
-      //меняем активных пока не будет жив
-      while(!state.alive[state.currentPlayer]){
-        state = state.copyWith(currentPlayer: (state.currentPlayer + 1) % 4);
+          state = state.copyWith(board: board, currentPlayerAlive: false, currentPlayer: (state.currentPlayer + 1) % 4);
+          wasChange = true;
+          break;
+        case Stalemate.draw:
+          state = state.copyWith(status: GameStatus.draw);
+        case Stalemate.skipMove:
+          state = state.copyWith(currentPlayer: (state.currentPlayer + 1) % 4);
+          wasChange = true;
       }
     }
 
+    //проверка что игра продолжается
+    if(state.status == GameStatus.active && _gameIsActive()){
+      //меняем активных пока не будет жив
+      while(!state.alive[state.currentPlayer]){
+        state = state.copyWith(currentPlayer: (state.currentPlayer + 1) % 4);
+        wasChange = true;
+      }
+      if(wasChange) _checkNextTurn();// рекурсивно вызываем проверку следующего активного игрока
+    }
+    else{
+      state = state.copyWith(status: GameStatus.over);
+    }
+
+  }
+  bool _gameIsActive(){
+    int activePlayer = state.alive.indexOf(true);
+    if(activePlayer == 3 || activePlayer == -1) return false;
+    switch(state.commands){
+      case Command.none:
+        return state.alive[(activePlayer + 1) % 4] || state.alive[(activePlayer + 2) % 4] || state.alive[(activePlayer + 3) % 4];
+      case Command.oppositeSides:
+        return state.alive[(activePlayer + 1) % 4] || state.alive[(activePlayer + 3) % 4];
+      case Command.adjacentSides:
+        if(activePlayer > 1) return false;
+        return state.alive[2] || state.alive[3];
+      default:
+        return false;
+    }
   }
 
 
-  bool _onFire(int index, List<ChessPiece?> board){//мы не учитываем возможность рокировки ибо у нас же не должна попадать под обстрел и не учитываем мутки с en passant
+  bool _onFire(int index, List<ChessPiece?> board){//не учитываем en passant и рокировки
     ChessPiece? piece = board[index];
 
     List<int> kings = List<int>.of(state.kings);
@@ -82,7 +131,7 @@ abstract class GameBaseNotifier extends StateNotifier<GameState> {
       ChessPiece? enemyPiece = board[i];
       if(
       enemyPiece != null &&
-          enemyPiece.owner != piece.owner &&
+          state.isEnemies(enemyPiece.owner, piece.owner) &&
           enemyPiece.getPossibleMoves(i, state.copyWith(board: board)).contains(index)
       ) {
         return true;
@@ -92,7 +141,6 @@ abstract class GameBaseNotifier extends StateNotifier<GameState> {
   }
 
   List<int> _truePossibleMoves(int index){
-    print('check');
     ChessPiece? piece = state.board[index];
     List<ChessPiece?> draw = List<ChessPiece?>.of(state.board);
     List<int> kings = List<int>.of(state.kings);
@@ -264,7 +312,43 @@ class OfflineGameNotifier extends GameBaseNotifier {
             newEnPassant[key] = [-1, -1];
           }
         }
-        if(pawn.isFinished(toIndex)){//если пешка финишировала
+        if(state.config.pawnPromotion != Promotion.none && pawn.isFinished(toIndex, state.config.promotionCondition)){//если пешка финишировала
+          switch(state.config.pawnPromotion){
+            case Promotion.queen:
+              board[toIndex] = Queen(owner: state.currentPlayer);
+            case Promotion.choice:
+              board[toIndex] = Pawn(owner: state.currentPlayer, hasMoved: true);
+              state = state = state.copyWith(board: board, enPassant: newEnPassant, status: GameStatus.waitingForPromotion, promotionPawn: toIndex);
+              return true;
+            case Promotion.random:
+              int intValue = Random().nextInt(4);
+              switch(intValue){
+                case 0:
+                  board[toIndex] = Queen(owner: state.currentPlayer);
+                case 1:
+                  board[toIndex] = Rook(owner: state.currentPlayer, hasMoved: true);
+                case 2:
+                  board[toIndex] = Knight(owner: state.currentPlayer);
+                case 3:
+                  board[toIndex] = Bishop(owner: state.currentPlayer);
+              }
+            case Promotion.randomWithPawn:
+              int intValue = Random().nextInt(5);
+              switch(intValue){
+                case 0:
+                  board[toIndex] = Queen(owner: state.currentPlayer);
+                case 1:
+                  board[toIndex] = Rook(owner: state.currentPlayer, hasMoved: true);
+                case 2:
+                  board[toIndex] = Knight(owner: state.currentPlayer);
+                case 3:
+                  board[toIndex] = Bishop(owner: state.currentPlayer);
+                case 4:
+                  board[toIndex] = Pawn(owner: state.currentPlayer, hasMoved: true);
+              }
+            case Promotion.none:
+              board[toIndex] = Pawn(owner: state.currentPlayer, hasMoved: true);
+          }
           board[toIndex] = Queen(owner: state.currentPlayer);
         }
         state = state.copyWith(board: board, enPassant: newEnPassant);
@@ -288,7 +372,7 @@ class OfflineGameNotifier extends GameBaseNotifier {
   }
 
   @override
-  bool checkmate() {
+  Stalemate? checkmate() {
     List<ChessPiece?> board = List<ChessPiece?>.of(state.board);
     List<int> kings = List<int>.of(state.kings);
     //перебираем каждый возможный ход
@@ -303,7 +387,7 @@ class OfflineGameNotifier extends GameBaseNotifier {
           board[move] = piece;
           if(piece.type == 'king') kings[state.currentPlayer] = move;
           if(!_onFire(kings[state.currentPlayer], board)){
-            return false;
+            return null;
           } else{
             board[move] = temp;
             board[index] = piece;
@@ -312,8 +396,20 @@ class OfflineGameNotifier extends GameBaseNotifier {
         }
       }
     }
-    return true;
+    //проверка на пат
+    if(_onFire(kings[state.currentPlayer], board)){//проверка на мат
+      return Stalemate.checkmate;
+    }
+    else{
+     return state.ifStalemate();
+    }
   }
+  /*
+    final Stalemate oneOnOneStalemate; //когда остаётесь 1 на 1                                 --абсолютный приоритет
+  final Stalemate aloneAmongAloneStalemate; // когда не 1 на 1 в бескомандном режиме          --одиночный режим
+  final Stalemate commandOnOneStalemate; // когда пат у 1 без напарника из-за команды         --командный режим
+  final Stalemate commandOnCommandStalemate; // когда пат у 1 с напарником                    --командный режим
+   */
 
   void _makeCastling(int rookIndex){
     int kingIndex = state.kings[state.currentPlayer];
@@ -370,7 +466,7 @@ class OnlineGameNotifier extends GameBaseNotifier {
   }
 
   @override
-  bool checkmate() {
+  Stalemate? checkmate() {
     // TODO: implement checkmate
     throw UnimplementedError();
   }

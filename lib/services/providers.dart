@@ -6,15 +6,15 @@ import '../configs/config.dart';
 import '../models/game.dart';
 import 'notifiers.dart';
 
-final boardOfflineProvider = StateNotifierProvider.family<OfflineGameNotifier, GameState, GameConfig>((ref, config) {
+final boardOfflineProvider = StateNotifierProvider.family<OfflineGameNotifier, GameState, OfflineConfig>((ref, config) {
   return OfflineGameNotifier(config);
 });
-final boardOnlineProvider = StateNotifierProvider.family<OnlineGameNotifier, GameState, GameConfig>((ref, config) {
+final boardOnlineProvider = StateNotifierProvider.family<OnlineGameNotifier, GameState, OnlineConfig>((ref, config) {
   return OnlineGameNotifier(config);
 });
 
-final gameConfigProvider = Provider<GameConfig>((ref) {
-  return GameConfig(playerColors: {
+final offlineConfigProvider = Provider<OfflineConfig>((ref) {
+  return OfflineConfig(playerColors: {
     -1: Colors.grey,
     0: Colors.yellow,
     1: Colors.blue,

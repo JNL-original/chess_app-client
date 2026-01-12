@@ -19,7 +19,7 @@ class BoardData{
     154, 155, 156,     165, 166, 167,
     168, 169, 170,     179, 180, 181,
     182, 183, 184,     193, 194, 195,
-  ];
+  ]; //если их перезаписывать надо еще поменять promotion conditions
 
   static List<ChessPiece?> initialBoard = List.generate(
       totalTiles, (index)=>null);

@@ -20,7 +20,7 @@ class Queen extends ChessPiece{
       index += direction ){
         if(game.board[index] == null){
           moves.add(index);
-        } else if(game.board[index]?.owner != owner){
+        } else if(game.isEnemies(game.board[index]!.owner, owner)){
           moves.add(index);
           break;
         } else{
@@ -36,7 +36,7 @@ class Queen extends ChessPiece{
     ){
       if(game.board[index] == null){
         moves.add(index);
-      } else if(game.board[index]?.owner != owner){
+      } else if(game.isEnemies(game.board[index]!.owner, owner)){
         moves.add(index);
         break;
       } else{
@@ -51,7 +51,7 @@ class Queen extends ChessPiece{
     ){
       if(game.board[index] == null){
         moves.add(index);
-      } else if(game.board[index]?.owner != owner){
+      } else if(game.isEnemies(game.board[index]!.owner, owner)){
         moves.add(index);
         break;
       } else{
@@ -66,7 +66,7 @@ class Queen extends ChessPiece{
     ){
       if(game.board[index] == null){
         moves.add(index);
-      } else if(game.board[index]?.owner != owner){
+      } else if(game.isEnemies(game.board[index]!.owner, owner)){
         moves.add(index);
         break;
       } else{
@@ -81,7 +81,7 @@ class Queen extends ChessPiece{
     ){
       if(game.board[index] == null){
         moves.add(index);
-      } else if(game.board[index]?.owner != owner){
+      } else if(game.isEnemies(game.board[index]!.owner, owner)){
         moves.add(index);
         break;
       } else{

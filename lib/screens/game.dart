@@ -79,7 +79,7 @@ class CurrentTurn extends ConsumerWidget{
   const CurrentTurn({super.key});
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final myConfig = ref.watch(gameConfigProvider);
+    final myConfig = ref.watch(offlineConfigProvider);
     final currentPlayer = ref.watch(boardOfflineProvider(myConfig).select(
         (state) => state.currentPlayer
     ));
@@ -115,7 +115,7 @@ class ChessTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
 
-    final myConfig = ref.watch(gameConfigProvider);
+    final myConfig = ref.watch(offlineConfigProvider);
 
 
     final piece = ref.watch(boardOfflineProvider(myConfig).select(

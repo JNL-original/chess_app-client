@@ -70,12 +70,12 @@ class Pawn extends ChessPiece{
         final targetPiece = game.board[attackIndex];
         if(targetPiece == null){ //если клетка пустая проверка на enPassant
           for(int key in game.enPassant.keys){
-            if(game.enPassant[key]![0] == attackIndex && game.board[game.enPassant[key]![1]]!.owner == key){
+            if(game.enPassant[key]![0] == attackIndex && game.board[game.enPassant[key]![1]]!.owner == key && game.isEnemies(owner, key)){
               moves.add(attackIndex);
             }
           }
         }
-        else if(targetPiece.owner != owner) {//если клетка вражеская
+        else if(game.isEnemies(targetPiece.owner, owner)) {//если клетка вражеская
           moves.add(attackIndex);
         }
 
@@ -110,16 +110,30 @@ class Pawn extends ChessPiece{
     return -1;
   }
 
-  bool isFinished(int index){
+  bool isFinished(int index, int promotionCondition){
+    if(promotionCondition == 0){
+      switch(owner){
+        case 0:
+          return [42, 43, 44, 55, 54, 53].contains(index) || index < 14;
+        case 1:
+          return [10, 24, 38, 192, 178, 164].contains(index) || index % 14 == 13;
+        case 2:
+          return [140, 141, 142, 153, 152, 151].contains(index) || index > 182;
+        case 3:
+          return [3, 17, 31, 157, 171, 185].contains(index) || index % 14 == 0;
+        default:
+          return false;
+      }
+    }
     switch(owner){
       case 0:
-        return index ~/ BoardData.boardSize == 5;
+        return index ~/ BoardData.boardSize <= BoardData.boardSize - promotionCondition;
       case 1:
-        return index % BoardData.boardSize == 8;
+        return index % BoardData.boardSize >= promotionCondition - 1;
       case 2:
-        return index ~/ BoardData.boardSize == 8;
+        return index ~/ BoardData.boardSize >= promotionCondition - 1;
       case 3:
-        return index % BoardData.boardSize == 5;
+        return index % BoardData.boardSize <= BoardData.boardSize - promotionCondition;
       default:
         return false;
     }

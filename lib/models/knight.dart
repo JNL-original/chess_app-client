@@ -26,7 +26,7 @@ class Knight extends ChessPiece{
       int index = currentIndex + direction;
       if(!BoardData.onBoard(index)
           || (index % boardSize - currentCol).abs() > 2
-          || game.board[index] != null && game.board[index]?.owner == owner){
+          || game.board[index] != null && !game.isEnemies(game.board[index]!.owner, owner)){
         continue;
       } else{
         moves.add(index);

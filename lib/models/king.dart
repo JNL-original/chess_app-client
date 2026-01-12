@@ -30,7 +30,7 @@ class King extends ChessPiece{
 
     for(int index in checkList){
       if(!BoardData.onBoard(index)
-          || game.board[index] != null && game.board[index]!.owner == owner){
+          || game.board[index] != null && !game.isEnemies(game.board[index]!.owner, owner)){
         continue;
       }
 
