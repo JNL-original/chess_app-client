@@ -15,6 +15,8 @@ class GameState {
   final Command commands;
   final GameStatus? status;
   final int promotionPawn;
+  final int? myPlayerIndex;//-1 это режим оффлайн, null зритель
+  final int turn; //чтобы сверятся с сервером и переполучить данные в случае несоответствия
 
 
   final GameConfig config;
@@ -30,7 +32,9 @@ class GameState {
     required this.commands,
     required this.status,
     required this.promotionPawn,
-    required this.config
+    required this.config,
+    required this.myPlayerIndex,
+    required this.turn
   });
 
   factory GameState.initial(GameConfig config){
@@ -60,29 +64,34 @@ class GameState {
       commands: commands,
       status: GameStatus.active,
       promotionPawn: -1,
-      config: config
+      config: config,
+      myPlayerIndex: -1,
+      turn: 0
     );
   }
 
   GameState copyWith({List<ChessPiece?>? board, int? selectedIndex, List<int>? availableMoves, int? killPlayer,
-    int? currentPlayer, int? newPlacementOfKing, bool? currentPlayerAlive, Map<int, List<int>>? enPassant, GameStatus? status, int? promotionPawn}){
+    int? currentPlayer, int? newPlacementOfKing, List<int>? kings, bool? currentPlayerAlive, Map<int, List<int>>? enPassant,
+    GameStatus? status, int? promotionPawn, int? myPlayerIndex, int? turn}){
     return GameState(
       board: board ?? this.board,
       selectedIndex: selectedIndex ?? this.selectedIndex,
       availableMoves: availableMoves ?? this.availableMoves,
       currentPlayer: currentPlayer ?? this.currentPlayer,
-      kings: _updateKing(newPlacementOfKing),
+      kings: _updateKing(newPlacementOfKing, kings),
       alive: _updateAlive(currentPlayerAlive, killPlayer),
       enPassant: _updateEnPassant(enPassant),
       commands: commands,
       status: status ?? this.status,
       promotionPawn: promotionPawn ?? this.promotionPawn,
-      config: config
+      config: config,
+      myPlayerIndex: myPlayerIndex ?? this.myPlayerIndex,
+      turn: turn ?? this.turn
     );
   }
 
   bool isEnemies(int firstPlayer, int secondPlayer){
-    if(firstPlayer == secondPlayer) return false;
+    if(firstPlayer == secondPlayer || firstPlayer < 0 || secondPlayer < 0) return false;
     switch(commands){
       case Command.none:
         return true;
@@ -119,7 +128,8 @@ class GameState {
     return kings;
   }
 
-  List<int> _updateKing(int? placementOfKing){
+  List<int> _updateKing(int? placementOfKing, List<int>? updateKings){
+    if(updateKings != null) return updateKings;
     if(placementOfKing == null){
       return kings;
     }
@@ -146,6 +156,59 @@ class GameState {
     return newEnPassant;
   }
 
+
+  factory GameState.fromMap(Map<String, dynamic> data) {
+    // 1. Парсим доску. Важно сохранить null!
+    final List<dynamic> rawBoard = data['board'];
+    final List<ChessPiece?> parsedBoard = rawBoard.map((item) {
+      if (item == null) return null;
+      return ChessPiece.fromMap(item as Map<String, dynamic>);
+    }).toList();
+
+    // 2. Парсим enPassant. В JSON ключи всегда строки, переводим обратно в int
+    final rawEnPassant = data['enPassant'] as Map<String, dynamic>;
+    final Map<int, List<int>> parsedEnPassant = rawEnPassant.map(
+          (key, value) => MapEntry(
+          int.parse(key),
+          (value as List).map((v) => v as int).toList()
+      ),
+    );
+
+    return GameState(
+      board: parsedBoard,
+      selectedIndex: data['selectedIndex'] ?? -1,
+      availableMoves: (data['availableMoves'] as List? ?? []).map((e) => e as int).toList(),
+      currentPlayer: data['currentPlayer'] ?? 0,
+      kings: (data['kings'] as List).map((e) => e as int).toList(),
+      alive: (data['alive'] as List).map((e) => e as bool).toList(),
+      enPassant: parsedEnPassant,
+      commands: Command.values.byName(data['commands'] ?? 'none'),
+      status: GameStatus.values.byName(data['status'] ?? 'active'),
+      promotionPawn: data['promotionPawn'] ?? -1,
+      myPlayerIndex: data['myPlayerIndex'],
+      turn: data['turn'] ?? 0,
+      config: OnlineConfig.fromMap(data['config'] as Map<String, dynamic>),
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'board': board.map((p) => p?.toMap()).toList(), // null сохранятся в списке автоматически
+      'selectedIndex': selectedIndex,
+      'availableMoves': availableMoves,
+      'currentPlayer': currentPlayer,
+      'kings': kings,
+      'alive': alive,
+      'enPassant': enPassant.map((k, v) => MapEntry(k.toString(), v)),
+      'commands': commands.name,
+      'status': status?.name,
+      'promotionPawn': promotionPawn,
+      'myPlayerIndex': myPlayerIndex,
+      'turn': turn,
+      'config': (config as OnlineConfig).toMap(),
+    };
+  }
+
 }
 
-enum GameStatus{active, over, waitingForPromotion, draw}
+enum GameStatus{active, over, waitingForPromotion, draw, lobby, connecting, waitResponse}

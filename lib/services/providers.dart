@@ -1,19 +1,64 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uuid/uuid.dart';
+import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../configs/config.dart';
 import '../models/game.dart';
-import 'notifiers.dart';
+import 'offline_controller.dart';
+import 'online_controller.dart';
 
-final boardOfflineProvider = StateNotifierProvider.family<OfflineGameNotifier, GameState, OfflineConfig>((ref, config) {
-  return OfflineGameNotifier(config);
-});
-final boardOnlineProvider = StateNotifierProvider.family<OnlineGameNotifier, GameState, OnlineConfig>((ref, config) {
-  return OnlineGameNotifier(config);
-});
+part 'providers.g.dart';
 
-final offlineConfigProvider = StateProvider<OfflineConfig>((ref) {
-  return OfflineConfig();
-});
+// Провайдер для токена сессии
+@riverpod
+Future<String> sessionToken(Ref ref) async {
+  final prefs = await SharedPreferences.getInstance();
+  String? token = prefs.getString('user_session_token');
+
+  if (token == null) {
+    token = const Uuid().v4();
+    await prefs.setString('user_session_token', token);
+  }
+
+  return token;
+}
+
+@riverpod
+Raw<WebSocketChannel> webSocket(Ref ref, String roomId) {
+  final token = ref.watch(sessionTokenProvider).value; // .value заставит провайдер пересоздаться, когда токен загрузится
+  if (token == null) {
+    throw Exception("Token not loaded");
+  }
+  final uri = Uri.parse('wss://chess-server.jnl-x.run/$roomId?token=$token');
+  final channel = WebSocketChannel.connect(uri);
+
+  ref.onDispose(() {
+    channel.sink.close();
+    print("Socket for $roomId closed");
+  });
+  channel.sink.done.then((_) {
+    Future.delayed(const Duration(seconds: 2), () {
+      if (ref.exists(webSocketProvider(roomId))) {
+        ref.invalidateSelf();
+      }
+    });
+  });
+
+  return channel;
+}
+
+
+@riverpod
+class OfflineConfigControl extends _$OfflineConfigControl{
+  @override
+  OfflineConfig build() => OfflineConfig();
+  void updateConfig(OfflineConfig config) => state = config;
+}
+
+
+
+
 

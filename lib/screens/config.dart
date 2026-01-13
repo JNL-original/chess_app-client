@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:chess_app/configs/config.dart';
@@ -33,11 +34,22 @@ class ConfigScreen extends ConsumerWidget{
                         child: ElevatedButton(
                             onPressed: (){
                               if(!onlineMode){
-                                ref.read(offlineConfigProvider.notifier).update((state) => OfflineConfig());
                                 context.go("/offline");
                               }
                               else{
-                                context.go('/online/12345');
+                                final OnlineConfig config = OnlineConfig();
+                                final channel = ref.read(webSocketProvider('none'));
+                                final subscription = channel.stream.listen((message) {
+                                  final data = jsonDecode(message);
+                                  if (data['type'] == 'room_created') {
+                                    final String newRoomId = data['roomId'];
+                                    context.go('/online/$newRoomId');
+                                  }
+                                });
+                                channel.sink.add(jsonEncode({
+                                  'type': 'create',
+                                  'config': config.toMap(),
+                                }));
                               }
                             },
                             child: Text("Создать игру")
@@ -52,4 +64,7 @@ class ConfigScreen extends ConsumerWidget{
     );
   }
 
+
+
 }
+

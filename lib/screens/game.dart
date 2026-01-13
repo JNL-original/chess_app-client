@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../models/chess_piece.dart';
+import '../services/offline_controller.dart';
 import '../services/providers.dart';
 
 class GameScreen extends ConsumerWidget {
@@ -86,8 +87,9 @@ class CurrentTurn extends ConsumerWidget{
   const CurrentTurn({super.key});
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final myConfig = ref.watch(offlineConfigProvider);
-    final currentPlayer = ref.watch(boardOfflineProvider(myConfig).select(
+    final playerColors = ref.watch(offlineGameProvider.select((state) => state.config.playerColors));
+    final playerNames = ref.watch(offlineGameProvider.select((state) => state.config.playerNames));
+    final currentPlayer = ref.watch(offlineGameProvider.select(
         (state) => state.currentPlayer
     ));
     return RichText(
@@ -96,9 +98,9 @@ class CurrentTurn extends ConsumerWidget{
         style: Theme.of(context).textTheme.bodyLarge,
         children: [
           TextSpan(
-            text: 'игрок ${currentPlayer + 1}',
+            text: playerNames[currentPlayer],
             style: Theme.of(context).textTheme.bodyLarge!.copyWith(
-              color: myConfig.playerColors[currentPlayer],
+              color: playerColors[currentPlayer],
               shadows: [
                 Shadow(offset: Offset(-1, -1), color: Colors.black),
                 Shadow(offset: Offset(1, -1), color: Colors.black),
@@ -122,21 +124,20 @@ class ChessTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
 
-    final myConfig = ref.watch(offlineConfigProvider);
+    final playerColors = ref.watch(offlineGameProvider.select((state) => state.config.playerColors));
 
-
-    final piece = ref.watch(boardOfflineProvider(myConfig).select(
+    final piece = ref.watch(offlineGameProvider.select(
       (state) => state.board[index],
     ));
-    final isSelected = ref.watch(boardOfflineProvider(myConfig).select(
+    final isSelected = ref.watch(offlineGameProvider.select(
       (state) => state.selectedIndex == index
     ));
-    final isAvailable = ref.watch(boardOfflineProvider(myConfig).select(
+    final isAvailable = ref.watch(offlineGameProvider.select(
       (state) => state.availableMoves.contains(index)
     ));
 
     return GestureDetector(
-      onTap: () => {ref.read(boardOfflineProvider(myConfig).notifier).onTileTapped(index)},
+      onTap: () => {ref.read(offlineGameProvider.notifier).onTileTapped(index)},
       child: Container(
         color: _getTileColor(index: index, isSelected: isSelected, isAvailable: isAvailable, piece: piece),
         child: Center(
@@ -144,7 +145,7 @@ class ChessTile extends ConsumerWidget {
             children: [
               SvgPicture.asset(
                 'assets/pieces/${piece.type}.svg',
-                colorFilter: ColorFilter.mode(myConfig.playerColors[piece.owner]!, BlendMode.srcIn),
+                colorFilter: ColorFilter.mode(playerColors[piece.owner]!, BlendMode.srcIn),
                 width: 60,
               ),
               SvgPicture.asset(
