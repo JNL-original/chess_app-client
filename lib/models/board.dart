@@ -26,7 +26,7 @@ class BoardData{
 
 
 
-  static List<ChessPiece?> initializePieces(GameConfig config){
+  static List<ChessPiece?> initializePieces(){
     final board = List<ChessPiece?>.from(initialBoard);
 
 

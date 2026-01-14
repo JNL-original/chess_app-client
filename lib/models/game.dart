@@ -38,7 +38,7 @@ class GameState {
   });
 
   factory GameState.initial(GameConfig config){
-    List<ChessPiece?> board =  BoardData.initializePieces(config);
+    List<ChessPiece?> board =  BoardData.initializePieces();
     Command commands;
     if(config.commands == Command.random){
       int intValue = Random().nextInt(2);

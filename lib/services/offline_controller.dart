@@ -209,16 +209,14 @@ class OfflineGame extends _$OfflineGame with GameBaseNotifier {
     }
 
     //проверка что игра продолжается
-    if(state.status == GameStatus.active && _gameIsActive()){
+    if(!_gameIsActive()) state = state.copyWith(status: GameStatus.over);
+    if(state.status == GameStatus.active){
       //меняем активных пока не будет жив
       while(!state.alive[state.currentPlayer]){
         state = state.copyWith(currentPlayer: (state.currentPlayer + 1) % 4);
         wasChange = true;
       }
       if(wasChange) _checkNextTurn();// рекурсивно вызываем проверку следующего активного игрока
-    }
-    else{
-      state = state.copyWith(status: GameStatus.over);
     }
 
   }
