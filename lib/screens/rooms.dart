@@ -12,6 +12,19 @@ class RoomsScreen extends StatelessWidget{
         appBar: AppBar(
           backgroundColor: Theme.of(context).colorScheme.onPrimaryFixed,
           title: Text("Шахматы на 4-х", style: Theme.of(context).textTheme.displayLarge,),
+          actions: [
+            Padding(
+              padding: const EdgeInsets.only(right: 8.0),
+              child: TextButton.icon(
+                onPressed: () => context.go('/'),
+                icon: const Icon(Icons.exit_to_app, color: Colors.white),
+                label: const Text(
+                    "В МЕНЮ",
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)
+                ),
+              ),
+            ),
+          ],
         ),
         body: LayoutBuilder(builder: (context, constraints){
           return Center(

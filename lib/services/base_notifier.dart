@@ -19,7 +19,7 @@ mixin GameBaseNotifier{
   void onTileTapped(int index){//клиент метод
     if(state.selectedIndex != -1
         && state.availableMoves.contains(index) && state.status == GameStatus.active){
-      if(state.myPlayerIndex != -1 && state.myPlayerIndex != state.currentPlayer) return;//если в режиме онлайн не твой ход
+      if(state.myPlayerIndex != null && state.myPlayerIndex != state.currentPlayer) return;//если в режиме онлайн не твой ход
       if(makeMove(state.selectedIndex, index)){
         if(state.status == GameStatus.waitingForPromotion || state.config is OnlineConfig) return;
         state = state.copyWith(selectedIndex: -1, availableMoves: []);

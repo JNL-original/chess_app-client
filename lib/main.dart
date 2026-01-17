@@ -19,13 +19,14 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
-      title: 'Chess app',
+      title: 'Шахматы на 4-х',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.brown),
         textTheme: TextTheme(
           displayLarge: TextStyle(color: Colors.white, fontSize: 24),
           bodyLarge: TextStyle(color: Colors.black, fontSize: 30),
-          bodyMedium: TextStyle(color: Colors.green, fontSize: 20)
+          bodyMedium: TextStyle(color: Colors.green, fontSize: 20),
+          headlineLarge: TextStyle(color: Colors.black, fontSize: 35)
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(

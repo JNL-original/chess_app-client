@@ -10,12 +10,12 @@ class GameState {
   final List<int> availableMoves;
   final int currentPlayer;
   final List<int> kings;
-  final List<bool> alive;
+  final List<bool?> alive;
   final Map<int, List<int>> enPassant; //player : [enPassant, pawn]
   final Command commands;
-  final GameStatus? status;
+  final GameStatus status;
   final int promotionPawn;
-  final int? myPlayerIndex;//-1 это режим оффлайн, null зритель
+  final int? myPlayerIndex;//null это режим оффлайн, -1 зритель
   final int turn; //чтобы сверятся с сервером и переполучить данные в случае несоответствия
 
 
@@ -65,26 +65,26 @@ class GameState {
       status: GameStatus.active,
       promotionPawn: -1,
       config: config,
-      myPlayerIndex: -1,
+      myPlayerIndex: null,
       turn: 0
     );
   }
 
   GameState copyWith({List<ChessPiece?>? board, int? selectedIndex, List<int>? availableMoves, int? killPlayer,
-    int? currentPlayer, int? newPlacementOfKing, List<int>? kings, bool? currentPlayerAlive, Map<int, List<int>>? enPassant,
-    GameStatus? status, int? promotionPawn, int? myPlayerIndex, int? turn}){
+    int? currentPlayer, int? newPlacementOfKing, List<int>? kings, bool? currentPlayerAlive, List<bool?>? aliveList, Map<int, List<int>>? enPassant,
+    GameStatus? status, int? promotionPawn, int? myPlayerIndex, int? turn, GameConfig? newConfig}){
     return GameState(
       board: board ?? this.board,
       selectedIndex: selectedIndex ?? this.selectedIndex,
       availableMoves: availableMoves ?? this.availableMoves,
       currentPlayer: currentPlayer ?? this.currentPlayer,
       kings: _updateKing(newPlacementOfKing, kings),
-      alive: _updateAlive(currentPlayerAlive, killPlayer),
+      alive: aliveList ?? _updateAlive(currentPlayerAlive, killPlayer),
       enPassant: _updateEnPassant(enPassant),
-      commands: commands,
+      commands: config.commands,
       status: status ?? this.status,
       promotionPawn: promotionPawn ?? this.promotionPawn,
-      config: config,
+      config: newConfig ?? config,
       myPlayerIndex: myPlayerIndex ?? this.myPlayerIndex,
       turn: turn ?? this.turn
     );
@@ -92,7 +92,7 @@ class GameState {
 
   bool isEnemies(int firstPlayer, int secondPlayer){
     if(firstPlayer == secondPlayer || firstPlayer < 0 || secondPlayer < 0) return false;
-    switch(commands){
+    switch(config.commands){
       case Command.none:
         return true;
       case Command.oppositeSides:
@@ -105,14 +105,14 @@ class GameState {
   }
 
   Stalemate ifStalemate(){//мы уже учитываем, что на момент проверки игра еще продолжалась
-    if(alive.fold(0, (prev, el) => prev + (el ? 1 : 0)) == 2) { //когда остаётесь 1 на 1
+    if(alive.fold(0, (prev, el) => prev + (el! ? 1 : 0)) == 2) { //когда остаётесь 1 на 1
       return config.oneOnOneStalemate;
     }
-    if(commands == Command.none) return config.aloneAmongAloneStalemate; //когда нет команд, и еще не 1 на 1
+    if(config.commands == Command.none) return config.aloneAmongAloneStalemate; //когда нет команд, и еще не 1 на 1
     //мы уже точно знаем что осталось 3+ игроков и у нас командный режим
-    if(alive[(currentPlayer + 1) % 4] && !isEnemies(currentPlayer, (currentPlayer + 1) % 4) ||//если есть живой союзник у проверяемого игрока
-        alive[(currentPlayer + 2) % 4] && !isEnemies(currentPlayer, (currentPlayer + 2) % 4) ||
-        alive[(currentPlayer + 3) % 4] && !isEnemies(currentPlayer, (currentPlayer + 3) % 4)){
+    if(alive[(currentPlayer + 1) % 4]! && !isEnemies(currentPlayer, (currentPlayer + 1) % 4) ||//если есть живой союзник у проверяемого игрока
+        alive[(currentPlayer + 2) % 4]! && !isEnemies(currentPlayer, (currentPlayer + 2) % 4) ||
+        alive[(currentPlayer + 3) % 4]! && !isEnemies(currentPlayer, (currentPlayer + 3) % 4)){
       return config.commandOnCommandStalemate;
     }
     return config.commandOnOneStalemate;
@@ -138,8 +138,8 @@ class GameState {
     return newKings;
   }
 
-  List<bool> _updateAlive(bool? currentPlayerAlive, int? killPlayer) {
-    List<bool> newAlive = List<bool>.of(alive);
+  List<bool?> _updateAlive(bool? currentPlayerAlive, int? killPlayer) {
+    List<bool?> newAlive = List<bool?>.of(alive);
     if(currentPlayerAlive != null) newAlive[currentPlayer] = currentPlayerAlive;
     if(killPlayer != null) newAlive[killPlayer] = false;
     return newAlive;
@@ -158,14 +158,12 @@ class GameState {
 
 
   factory GameState.fromMap(Map<String, dynamic> data) {
-    // 1. Парсим доску. Важно сохранить null!
     final List<dynamic> rawBoard = data['board'];
     final List<ChessPiece?> parsedBoard = rawBoard.map((item) {
       if (item == null) return null;
       return ChessPiece.fromMap(item as Map<String, dynamic>);
     }).toList();
 
-    // 2. Парсим enPassant. В JSON ключи всегда строки, переводим обратно в int
     final rawEnPassant = data['enPassant'] as Map<String, dynamic>;
     final Map<int, List<int>> parsedEnPassant = rawEnPassant.map(
           (key, value) => MapEntry(
@@ -180,7 +178,7 @@ class GameState {
       availableMoves: (data['availableMoves'] as List? ?? []).map((e) => e as int).toList(),
       currentPlayer: data['currentPlayer'] ?? 0,
       kings: (data['kings'] as List).map((e) => e as int).toList(),
-      alive: (data['alive'] as List).map((e) => e as bool).toList(),
+      alive: (data['alive'] as List).map((e) => e as bool?).toList(),
       enPassant: parsedEnPassant,
       commands: Command.values.byName(data['commands'] ?? 'none'),
       status: GameStatus.values.byName(data['status'] ?? 'active'),
@@ -200,7 +198,7 @@ class GameState {
       'kings': kings,
       'alive': alive,
       'enPassant': enPassant.map((k, v) => MapEntry(k.toString(), v)),
-      'commands': commands.name,
+      'commands': config.commands.name,
       'status': status?.name,
       'promotionPawn': promotionPawn,
       'myPlayerIndex': myPlayerIndex,
@@ -211,4 +209,4 @@ class GameState {
 
 }
 
-enum GameStatus{active, over, waitingForPromotion, draw, lobby, connecting, waitResponse}
+enum GameStatus{active, over, waitingForPromotion, draw, lobby, connecting, notExist}

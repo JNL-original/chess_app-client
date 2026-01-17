@@ -4,10 +4,10 @@ import '../models/chess_piece.dart';
 
 
 abstract class GameConfig {
-  static const defaultColors = {-1: Colors.grey, 0: Colors.yellow, 1: Colors.blue, 2: Colors.red, 3: Colors.green};
-  static const defaultNames = {0: 'игрок 1', 1: 'игрок 2', 2: 'игрок 3', 3: 'игрок 4'};
+  //static const defaultColors = {-1: Colors.grey, 0: Colors.yellow, 1: Colors.blue, 2: Colors.red, 3: Colors.green};
+  //static const defaultNames = {0: 'игрок 1', 1: 'игрок 2', 2: 'игрок 3', 3: 'игрок 4'};
   //for user interface
-  final Map<int, MaterialColor> playerColors;
+  final Map<int, Color> playerColors;
   final Map<int, String> playerNames;
   //for program logic
   final Command commands;
@@ -25,6 +25,8 @@ abstract class GameConfig {
   final Timer timerType;
   final double timerTime;
   final TimeOut timeOut;//при цареубийстве всегда random
+
+  GameConfig copyWith();
 
   GameConfig({
     this.playerColors = const {-1 : Colors.grey, 0 : Colors.yellow, 1 : Colors.blue, 2 : Colors.red, 3 : Colors.green},
@@ -45,7 +47,6 @@ abstract class GameConfig {
 }
 
 class OfflineConfig extends GameConfig{
-  final bool turnPieces; //только для оффлайн
   OfflineConfig({
     super.playerColors,
     super.playerNames,
@@ -60,8 +61,12 @@ class OfflineConfig extends GameConfig{
     super.timerType,
     super.timerTime,
     super.timeOut,
-    this.turnPieces = false
   });
+
+  @override
+  GameConfig copyWith() {
+    return OnlineConfig();
+  }
 }
 class OnlineConfig extends GameConfig {
   final bool publicAccess;
@@ -91,13 +96,13 @@ class OnlineConfig extends GameConfig {
     final rawColors = json['playerColors'] as Map<String, dynamic>?;
     final Map<int, Color> parsedColors = rawColors?.map(
           (k, v) => MapEntry(int.parse(k), Color(v as int)),
-    ) ?? GameConfig.defaultColors;
+    ) ?? {-1: Colors.grey, 0: Colors.yellow, 1: Colors.blue, 2: Colors.red, 3: Colors.green};
 
     // Парсим имена: конвертируем String ключ в int (ID игрока)
     final rawNames = json['playerNames'] as Map<String, dynamic>?;
     final Map<int, String> parsedNames = rawNames?.map(
           (k, v) => MapEntry(int.parse(k), v as String),
-    ) ?? GameConfig.defaultNames;
+    ) ?? {0: 'игрок 1', 1: 'игрок 2', 2: 'игрок 3', 3: 'игрок 4'};
 
     return OnlineConfig(
       // Специфичные для онлайн поля
@@ -105,7 +110,7 @@ class OnlineConfig extends GameConfig {
       ifConnectionIsLost: LoseConnection.values.byName(json['ifConnectionIsLost'] ?? 'wait'),
 
       // Поля базового класса
-      playerColors: parsedColors.cast<int, MaterialColor>(), // Если пока используешь MaterialColor
+      playerColors: parsedColors, // Если пока используешь MaterialColor
       playerNames: parsedNames,
       commands: Command.values.byName(json['commands'] ?? 'none'),
       pawnPromotion: Promotion.values.byName(json['pawnPromotion'] ?? 'queen'),
@@ -146,6 +151,27 @@ class OnlineConfig extends GameConfig {
       'publicAccess': publicAccess,
       'ifConnectionIsLost': ifConnectionIsLost.name,
     };
+  }
+
+  @override
+  OnlineConfig copyWith({Map<int, Color>? colors, Map<int, String>? names}) {
+    return OnlineConfig(
+      playerColors: colors ?? super.playerColors,
+      playerNames: names ?? super.playerNames,
+      commands: super.commands,
+      onlyRegicide: super.onlyRegicide,
+      oneOnOneStalemate: super.oneOnOneStalemate,
+      aloneAmongAloneStalemate: super.aloneAmongAloneStalemate,
+      commandOnOneStalemate: super.commandOnOneStalemate,
+      commandOnCommandStalemate: super.commandOnCommandStalemate,
+      pawnPromotion: super.pawnPromotion,
+      promotionCondition: super.promotionCondition,
+      timerType: super.timerType,
+      timerTime: super.timerTime,
+      timeOut: super.timeOut,
+      publicAccess: publicAccess,
+      ifConnectionIsLost: ifConnectionIsLost,
+    );
   }
 }
 

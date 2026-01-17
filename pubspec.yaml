@@ -44,6 +44,7 @@ dependencies:
   build_runner: ^2.10.5
   riverpod_generator: ^4.0.0+1
   riverpod_lint: ^3.1.0
+  web: ^1.1.1
 
 dev_dependencies:
   flutter_test:

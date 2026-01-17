@@ -3,6 +3,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:chess_app/services/providers.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
@@ -10,53 +11,59 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 import '../configs/config.dart';
 import '../models/chess_piece.dart';
 import '../models/game.dart';
-import '../models/pawn.dart';
-import '../models/rook.dart';
 import 'base_notifier.dart';
 
 part 'online_controller.g.dart';
 
 @riverpod
 class OnlineGame extends _$OnlineGame with GameBaseNotifier{
-  late String _roomId;
-  late WebSocketChannel channel;
 
   @override
   GameState build(String roomId) {
-    _roomId = roomId;
-    channel = ref.watch(webSocketProvider(_roomId));
+    final socketAsync = ref.watch(webSocketProvider(roomId));
 
-    final subscription = _subscript();
-    ref.onDispose(() => subscription.cancel());
+    return socketAsync.when(
+      data: (channel) {
+        final subscription = _subscript(channel);
+        ref.onDispose(() => subscription.cancel());
 
-    channel.sink.add(jsonEncode({
-      'type': 'connect'
-    }));
+        channel.sink.add(jsonEncode({'type': 'connect'}));
 
-    return GameState.initial(OnlineConfig()).copyWith(status: GameStatus.connecting);
+        return GameState.initial(OnlineConfig()).copyWith(status: GameStatus.connecting);
+      },
+      loading: () => GameState.initial(OnlineConfig()).copyWith(status: GameStatus.connecting),
+      error: (err, stack) => GameState.initial(OnlineConfig()).copyWith(status: GameStatus.connecting),
+    );
   }
 
-  StreamSubscription<dynamic> _subscript() {
+  StreamSubscription<dynamic> _subscript(channel) {
     return channel.stream.listen((message) {
       final data = jsonDecode(message);
       if (data['type'] == 'sync') {
         state = GameState.fromMap(data['data']);
+        final readyList = data['ready'];
+        if(readyList != null){
+          List<bool?> aliveList = state.alive;
+          for( int i = 0; i < 4; i ++){
+              aliveList[i] = readyList[i];//если null то пустое место
+          }
+          state = state.copyWith(aliveList: aliveList);
+        }
       }
-      if(data['turn'] != state.turn + 1) {channel.sink.add(jsonEncode({'type': 'connect'}));}
       else{
-        switch(data['type']){
-          case 'move':
-            _handleMove(data);
-          case 'castling':
-            _handleCastling(data);
-          case 'death':
-            _handleDeath(data);
-          case 'promotion':
-            _handlePromotion(data);
-          case 'changeStatus':
-            _handleChangeStatus(data);
-          default:
-            channel.sink.add(jsonEncode({'type': 'connect'}));
+        if(data['turn'] == null || data['turn']!= state.turn + 1) {channel.sink.add(jsonEncode({'type': 'connect'}));}
+        else{
+          switch(data['type']){
+            case 'lobby':
+              _handleLobby(data);
+            case 'update':
+              _handleUpdate(data);
+            case 'notExist':
+              state = state.copyWith(status: GameStatus.notExist);
+              channel.sink.close(1000);
+            default:
+              channel.sink.add(jsonEncode({'type': 'connect'}));
+          }
         }
       }
     },
@@ -68,12 +75,16 @@ class OnlineGame extends _$OnlineGame with GameBaseNotifier{
 
   @override
   bool makeMove(int fromIndex, int toIndex) {
-    channel.sink.add(jsonEncode({
-      'type': 'move',
-      'from': fromIndex,
-      'to': toIndex,
-    }));
-    return true;
+    final socket = ref.read(webSocketProvider(roomId)).value;
+    if (socket != null) {
+      socket.sink.add(jsonEncode({
+        'type': 'move',
+        'from': fromIndex,
+        'to': toIndex,
+      }));
+      return true;
+    }
+    return false;
   }
 
   @override
@@ -83,89 +94,118 @@ class OnlineGame extends _$OnlineGame with GameBaseNotifier{
 
   @override
   void continueGameAfterPromotion(ChessPiece piece) {
-    channel.sink.add(jsonEncode({
-      'type': 'promotion',
-      'who': piece.toMap(),
-    }));
+    final socket = ref.read(webSocketProvider(roomId)).value;
+    if (socket != null) {
+      socket.sink.add(jsonEncode({
+        'type': 'promotion',
+        'who': piece.toMap(),
+      }));
+    }
+  }
+
+  void iAmReady({Color? color, String? name}){
+    List<bool?> alive = List.of(state.alive);
+    alive[state.myPlayerIndex!] = true;
+    state = state.copyWith(aliveList: alive);
+    Map<String, dynamic> message = {};
+    message['type'] = 'ready';
+    if(color != null) message['color'] = color.value;
+    if(name != null) message['name'] = name;
+    final socket = ref.read(webSocketProvider(roomId)).value;
+    if (socket != null) socket.sink.add(jsonEncode(message));
+  }
+  void cancelReady(){
+    List<bool?> alive = List.of(state.alive);
+    alive[state.myPlayerIndex!] = false;
+    state = state.copyWith(aliveList: alive);
+    final socket = ref.read(webSocketProvider(roomId)).value;
+    if (socket != null) {
+      socket.sink.add(jsonEncode({
+        'type': 'cancelReady',
+      }));
+    }
+  }
+  void changeLobbyProperty({Color? color, String? name}){
+    Map<String, dynamic> message = {};
+    message['type'] = 'change';
+    if(color != null) message['color'] = color.value;
+    if(name != null) message['name'] = name;
+    final socket = ref.read(webSocketProvider(roomId)).value;
+    if (socket != null) socket.sink.add(jsonEncode(message));
   }
 
   @override
   void nextPlayer() {} //переход к следующему игроку и его проверку реализует сервер
 
-  void _handleMove(Map<String, dynamic> data){
-    List<ChessPiece?> board = List<ChessPiece?>.of(state.board);
-    board[data['from']] = null;
-    board[data['to']] = ChessPiece.fromMap(data['who']);
-    final rawEnPassant = data['enPassant'] as Map<String, dynamic>;
-    final parsedEnPassant = rawEnPassant.map(
-            (k, v) => MapEntry(int.parse(k), List<int>.from(v))
-    );
-    state = state.copyWith(
-      board: board,
-      enPassant: parsedEnPassant,
-      currentPlayer: data['currentPlayer'],
-      kings: data['kings'],
-      status: data['status'],
-      turn: data['turn'],
-      availableMoves: [],
-      selectedIndex: -1,
-      promotionPawn: data['promotionPawn']
-    );
+  void _handleLobby(Map<String, dynamic> data){
+    final readyList = data['ready'];
+    if(readyList != null){
+      List<bool?> aliveList = state.alive;
+      for( int i = 0; i < 4; i ++){
+        aliveList[i] = readyList[i];//если null то пустое место
+      }
+      OnlineConfig config = state.config as OnlineConfig;
+      final colorsHEX = data['colors'];
+      Map<int, Color>? colors;
+      if(colorsHEX != null){
+        final rawColors = colorsHEX as Map<String, dynamic>?;
+        final Map<int, Color> parsedColors = rawColors?.map(
+              (k, v) => MapEntry(int.parse(k), Color(v as int)),
+        ) ?? {-1: Colors.grey, 0: Colors.yellow, 1: Colors.blue, 2: Colors.red, 3: Colors.green};
+        colors = parsedColors;
+      }
+      final names = data['names'];//Уже в удобном виде
+      config = config.copyWith(colors: colors, names: names);
+      final statusString = data['status'];
+      GameStatus? status;
+      if(statusString != null) {
+        status = GameStatus.values.byName(statusString);
+      }
+      state = state.copyWith(aliveList: aliveList, newConfig: config, status: status, turn: data['turn']);
+    }
   }
-  void _handleCastling(Map<String, dynamic> data){
-    List<ChessPiece?> board = List<ChessPiece?>.of(state.board);
-    board[data['kingFrom']] = null;
-    board[data['kingTo']] = ChessPiece.fromMap(data['king']);
-    board[data['rookFrom']] = null;
-    board[data['rookTo']] = ChessPiece.fromMap(data['rook']);
-    final rawEnPassant = data['enPassant'] as Map<String, dynamic>;
-    final parsedEnPassant = rawEnPassant.map(
-            (k, v) => MapEntry(int.parse(k), List<int>.from(v))
-    );
-    state = state.copyWith(
-      board: board,
-      enPassant: parsedEnPassant,
-      currentPlayer: data['currentPlayer'],
-      kings: data['kings'],
-      status: data['status'],
-      turn: data['turn'],
-      availableMoves: [],
-      selectedIndex: -1
-    );
-  }
-  void _handleDeath(Map<String, dynamic> data){
-    List<ChessPiece?> board = List<ChessPiece?>.of(state.board);
-    for(int i = 0; i < board.length; i++){
-      if(board[i] != null && board[i]!.owner == data['dead']){
-        board[i] = board[i]!.kill();
+  void _handleUpdate(Map<String, dynamic> data){
+    final updateData = data['data'];
+    if(updateData == null || updateData.isEmpty) return;
+    final configUpdate = updateData['config'];
+    OnlineConfig? config;
+    if(configUpdate != null) config = OnlineConfig.fromMap(configUpdate);
+    final currentPlayerUpdate = updateData['currentPlayer'];
+    final promotionPawnUpdate = updateData['promotionPawn'];
+    final statusUpdate = updateData['status'];
+    GameStatus? status;
+    if(statusUpdate != null) status = GameStatus.values.byName(statusUpdate);
+    final enPassantUpdate = updateData['enPassant'];
+    Map<int, List<int>>? enPassant;
+    if(enPassantUpdate != null){
+      enPassant = (enPassantUpdate as Map).map((k, v) => MapEntry(int.parse(k), List<int>.from(v)));
+    }
+    final aliveUpdate = updateData['alive'];
+    List<bool>? alive;
+    if(aliveUpdate != null) alive = List<bool>.from(aliveUpdate);
+    final kingsUpdate = updateData['kings'];
+    List<int>? kings;
+    if(kingsUpdate != null) kings = List<int>.from(kingsUpdate);
+    final tilesUpdate = updateData['tiles'];
+    List<ChessPiece?>? board;
+    if(tilesUpdate != null){
+      board = state.board;
+      Map<int, ChessPiece?> tiles =  (tilesUpdate as Map).map((k, v) =>
+          MapEntry(int.parse(k), (v==null || (v as Map<String, dynamic>).isEmpty) ? null : ChessPiece.fromMap(v)));
+      for(int key in tiles.keys) {
+        board[key] = tiles[key];
       }
     }
     state = state.copyWith(
+      newConfig: config,
+      currentPlayer: currentPlayerUpdate as int?,
+      promotionPawn: promotionPawnUpdate as int?,
+      status: status,
+      enPassant: enPassant,
+      aliveList: alive,
+      kings: kings,
       board: board,
-      currentPlayer: data['currentPlayer'],
-      status: data['status'],
-      turn: data['turn'],
-      availableMoves: [],
-      selectedIndex: -1
-    );
-  }
-  void _handleChangeStatus(Map<String, dynamic> data){
-    state = state.copyWith(
-      status: data['status'],
       turn: data['turn']
-    );
-  }
-  void _handlePromotion(Map<String, dynamic> data){
-    List<ChessPiece?> board = List<ChessPiece?>.of(state.board);
-    board[data['index']] = ChessPiece.fromMap(data['who']);
-    state = state.copyWith(
-      board: board,
-      currentPlayer: data['currentPlayer'],
-      status: data['status'],
-      turn: data['turn'],
-      availableMoves: [],
-      selectedIndex: -1,
-      promotionPawn: -1
     );
   }
 }

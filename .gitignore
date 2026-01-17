@@ -48,3 +48,5 @@ app.*.map.json
 
 # My personal notes
 MY_NOTES.txt
+
+/web/assets/images/logo-original.png

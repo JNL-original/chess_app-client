@@ -184,7 +184,7 @@ class OfflineGame extends _$OfflineGame with GameBaseNotifier {
   void _checkNextTurn(){
     bool wasChange = false; //было ли доп изменение текущего игрока
     //удаление enPassant если игрок жив
-    if(state.alive[state.currentPlayer]){
+    if(state.alive[state.currentPlayer]!){
       state = state.copyWith(enPassant: {state.currentPlayer : [-1, -1]});
       //проверка на мат если игрок жив
       switch(checkmate()){
@@ -212,7 +212,7 @@ class OfflineGame extends _$OfflineGame with GameBaseNotifier {
     if(!_gameIsActive()) state = state.copyWith(status: GameStatus.over);
     if(state.status == GameStatus.active){
       //меняем активных пока не будет жив
-      while(!state.alive[state.currentPlayer]){
+      while(!state.alive[state.currentPlayer]!){
         state = state.copyWith(currentPlayer: (state.currentPlayer + 1) % 4);
         wasChange = true;
       }
@@ -268,14 +268,14 @@ class OfflineGame extends _$OfflineGame with GameBaseNotifier {
   bool _gameIsActive(){
     int activePlayer = state.alive.indexOf(true);
     if(activePlayer == 3 || activePlayer == -1) return false;
-    switch(state.commands){
+    switch(state.config.commands){
       case Command.none:
-        return state.alive[(activePlayer + 1) % 4] || state.alive[(activePlayer + 2) % 4] || state.alive[(activePlayer + 3) % 4];
+        return state.alive[(activePlayer + 1) % 4]! || state.alive[(activePlayer + 2) % 4]! || state.alive[(activePlayer + 3) % 4]!;
       case Command.oppositeSides:
-        return state.alive[(activePlayer + 1) % 4] || state.alive[(activePlayer + 3) % 4];
+        return state.alive[(activePlayer + 1) % 4]! || state.alive[(activePlayer + 3) % 4]!;
       case Command.adjacentSides:
         if(activePlayer > 1) return false;
-        return state.alive[2] || state.alive[3];
+        return state.alive[2]! || state.alive[3]!;
       default:
         return false;
     }

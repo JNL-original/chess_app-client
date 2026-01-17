@@ -48,11 +48,11 @@ final webSocketProvider = WebSocketFamily._();
 final class WebSocketProvider
     extends
         $FunctionalProvider<
-          Raw<WebSocketChannel>,
-          Raw<WebSocketChannel>,
-          Raw<WebSocketChannel>
+          AsyncValue<WebSocketChannel>,
+          WebSocketChannel,
+          FutureOr<WebSocketChannel>
         >
-    with $Provider<Raw<WebSocketChannel>> {
+    with $FutureModifier<WebSocketChannel>, $FutureProvider<WebSocketChannel> {
   WebSocketProvider._({
     required WebSocketFamily super.from,
     required String super.argument,
@@ -76,22 +76,14 @@ final class WebSocketProvider
 
   @$internal
   @override
-  $ProviderElement<Raw<WebSocketChannel>> $createElement(
+  $FutureProviderElement<WebSocketChannel> $createElement(
     $ProviderPointer pointer,
-  ) => $ProviderElement(pointer);
+  ) => $FutureProviderElement(pointer);
 
   @override
-  Raw<WebSocketChannel> create(Ref ref) {
+  FutureOr<WebSocketChannel> create(Ref ref) {
     final argument = this.argument as String;
     return webSocket(ref, argument);
-  }
-
-  /// {@macro riverpod.override_with_value}
-  Override overrideWithValue(Raw<WebSocketChannel> value) {
-    return $ProviderOverride(
-      origin: this,
-      providerOverride: $SyncValueProvider<Raw<WebSocketChannel>>(value),
-    );
   }
 
   @override
@@ -105,10 +97,10 @@ final class WebSocketProvider
   }
 }
 
-String _$webSocketHash() => r'3ede350a4f46785eabcd610f9076e27df52e3a1a';
+String _$webSocketHash() => r'93146f11c0f239d960eaea471ae6ac90075db383';
 
 final class WebSocketFamily extends $Family
-    with $FunctionalFamilyOverride<Raw<WebSocketChannel>, String> {
+    with $FunctionalFamilyOverride<FutureOr<WebSocketChannel>, String> {
   WebSocketFamily._()
     : super(
         retry: null,

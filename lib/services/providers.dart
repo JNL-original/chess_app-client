@@ -27,24 +27,27 @@ Future<String> sessionToken(Ref ref) async {
 }
 
 @riverpod
-Raw<WebSocketChannel> webSocket(Ref ref, String roomId) {
-  final token = ref.watch(sessionTokenProvider).value; // .value заставит провайдер пересоздаться, когда токен загрузится
-  if (token == null) {
-    throw Exception("Token not loaded");
-  }
+Future<WebSocketChannel> webSocket(Ref ref, String roomId) async {
+  final token = await ref.watch(sessionTokenProvider.future);
   final uri = Uri.parse('wss://chess-server.jnl-x.run/$roomId?token=$token');
   final channel = WebSocketChannel.connect(uri);
 
   ref.onDispose(() {
-    channel.sink.close();
+    channel.sink.close(1000);
     print("Socket for $roomId closed");
   });
   channel.sink.done.then((_) {
-    Future.delayed(const Duration(seconds: 2), () {
-      if (ref.exists(webSocketProvider(roomId))) {
-        ref.invalidateSelf();
-      }
-    });
+    if (!ref.mounted) return;
+    final closeCode = channel.closeCode;
+    print("Socket $roomId closed with code: $closeCode");
+
+    if (closeCode != 1000 && ref.exists(webSocketProvider(roomId))) {
+      Future.delayed(const Duration(seconds: 2), () {
+        if (ref.exists(webSocketProvider(roomId))) {
+          ref.invalidateSelf();
+        }
+      });
+    }
   });
 
   return channel;
