@@ -30,27 +30,42 @@ Future<String> sessionToken(Ref ref) async {
 Future<WebSocketChannel> webSocket(Ref ref, String roomId) async {
   final token = await ref.watch(sessionTokenProvider.future);
   final uri = Uri.parse('wss://chess-server.jnl-x.run/$roomId?token=$token');
+
   final channel = WebSocketChannel.connect(uri);
+
+  try {
+    await channel.ready;
+    print("Соединение установлено");
+  } catch (e) {
+    print("Ошибка при первом подключении: $e.");
+    _scheduleRetry(ref, roomId);
+    rethrow;
+  }
 
   ref.onDispose(() {
     channel.sink.close(1000);
-    print("Socket for $roomId closed");
   });
+
   channel.sink.done.then((_) {
     if (!ref.mounted) return;
-    final closeCode = channel.closeCode;
-    print("Socket $roomId closed with code: $closeCode");
 
-    if (closeCode != 1000 && ref.exists(webSocketProvider(roomId))) {
-      Future.delayed(const Duration(seconds: 2), () {
-        if (ref.exists(webSocketProvider(roomId))) {
-          ref.invalidateSelf();
-        }
-      });
+    final closeCode = channel.closeCode;
+    print("Socket closed with code: $closeCode");
+
+    if (closeCode != 1000 && closeCode != 1001) {
+      _scheduleRetry(ref, roomId);
     }
   });
 
   return channel;
+}
+
+void _scheduleRetry(Ref ref, String roomId) {
+  Future.delayed(const Duration(seconds: 3), () {
+    if (ref.mounted && ref.exists(webSocketProvider(roomId))) {
+      ref.invalidateSelf();
+    }
+  });
 }
 
 

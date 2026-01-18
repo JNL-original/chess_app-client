@@ -97,7 +97,7 @@ final class WebSocketProvider
   }
 }
 
-String _$webSocketHash() => r'93146f11c0f239d960eaea471ae6ac90075db383';
+String _$webSocketHash() => r'3917c52f7c86914510936103e34cd7438a3667e2';
 
 final class WebSocketFamily extends $Family
     with $FunctionalFamilyOverride<FutureOr<WebSocketChannel>, String> {

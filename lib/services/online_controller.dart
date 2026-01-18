@@ -24,6 +24,8 @@ class OnlineGame extends _$OnlineGame with GameBaseNotifier{
     print("--- Начался метод build ---");
     ref.listen(webSocketProvider(roomId), (previous, next) {
       next.whenData((channel) {
+        _socketSubscription?.cancel();
+        _socketSubscription = null;
         _setupSubscription(channel);
       });
     });
@@ -34,6 +36,7 @@ class OnlineGame extends _$OnlineGame with GameBaseNotifier{
     }
     ref.onDispose(() {
       _socketSubscription?.cancel();
+      _socketSubscription = null;
     });
     print("--- Возвращаю начальное состояние ---");
     return GameState.initial(OnlineConfig()).copyWith(status: GameStatus.connecting);
@@ -167,12 +170,12 @@ class OnlineGame extends _$OnlineGame with GameBaseNotifier{
         final Map<int, Color> parsedColors = rawColors?.map(
               (k, v) => MapEntry(int.parse(k), Color(v as int)),
         ) ?? {-1: Colors.grey, 0: Colors.yellow, 1: Colors.blue, 2: Colors.red, 3: Colors.green};
-        colors = parsedColors;
+        colors = parsedColors.cast<int, Color>();
       }
       Map<int, String>? names;
       if (data['names'] != null) {
         final Map<String, dynamic> rawNames = data['names'];
-        names = rawNames.map((key, value) => MapEntry(int.parse(key), value.toString()));
+        names = rawNames.map((key, value) => MapEntry(int.parse(key), value.toString())).cast<int, String>();
       }
       config = config.copyWith(colors: colors, names: names);
 
