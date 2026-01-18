@@ -266,19 +266,16 @@ class OfflineGame extends _$OfflineGame with GameBaseNotifier {
 
 
   bool _gameIsActive(){
-    int activePlayer = state.alive.indexOf(true);
-    if(activePlayer == 3 || activePlayer == -1) return false;
-    switch(state.config.commands){
-      case Command.none:
-        return state.alive[(activePlayer + 1) % 4]! || state.alive[(activePlayer + 2) % 4]! || state.alive[(activePlayer + 3) % 4]!;
-      case Command.oppositeSides:
-        return state.alive[(activePlayer + 1) % 4]! || state.alive[(activePlayer + 3) % 4]!;
-      case Command.adjacentSides:
-        if(activePlayer > 1) return false;
-        return state.alive[2]! || state.alive[3]!;
-      default:
-        return false;
+    List<bool?> alive = state.alive;
+    for (int i = 0; i < 4; i++) {
+      if (!alive[i]!) continue;
+      for (int j = i + 1; j < 4; j++) {
+        if (alive[i]! && state.isEnemies(i, j)) {
+          return true;
+        }
+      }
     }
+    return false;
   }
 
   @override

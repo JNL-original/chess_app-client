@@ -41,7 +41,7 @@ final class OfflineGameProvider
   }
 }
 
-String _$offlineGameHash() => r'2c31a62973752713585e03de20b4e2a935097e9a';
+String _$offlineGameHash() => r'57e370bc1011324d789113d47069aefae505a118';
 
 abstract class _$OfflineGame extends $Notifier<GameState> {
   GameState build();

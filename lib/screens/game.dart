@@ -247,33 +247,34 @@ class _GameScreenState extends ConsumerState<GameScreen> {
             ),
           ),
           actions: [
-            Expanded(child:
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20),
-                child: Column(
-                  spacing: 25,
-                  children: [
-                    ElevatedButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: Padding(
-                        padding: EdgeInsets.all(10),
-                        child: Text("Посмотреть поле"),
-                      )
-                    ),
-                    ElevatedButton(
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                        context.go('/');
-                      },
-                      child: Padding(
-                        padding: EdgeInsets.all(10),
-                        child: Text("Выйти"),
-                      )
+          Container(
+          width: double.maxFinite, // Чтобы кнопки были на всю ширину если нужно
+          child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20),
+              child: Column(
+                spacing: 25,
+                children: [
+                  ElevatedButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: Padding(
+                      padding: EdgeInsets.all(10),
+                      child: Text("Посмотреть поле"),
                     )
-                  ],
-                ),
-              )
+                  ),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      context.go('/');
+                    },
+                    child: Padding(
+                      padding: EdgeInsets.all(10),
+                      child: Text("Выйти"),
+                    )
+                  )
+                ],
+              ),
             )
+          )
           ],
           actionsAlignment: MainAxisAlignment.center,
         ),

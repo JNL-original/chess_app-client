@@ -204,8 +204,10 @@ class OnlineGame extends _$OnlineGame with GameBaseNotifier{
       enPassant = (enPassantUpdate as Map).map((k, v) => MapEntry(int.parse(k), List<int>.from(v)));
     }
     final aliveUpdate = updateData['alive'];
-    List<bool>? alive;
-    if(aliveUpdate != null) alive = List<bool>.from(aliveUpdate);
+    List<bool?>? alive;
+    if(aliveUpdate != null) {
+      alive = (aliveUpdate as List).map((e) => e as bool?).toList();
+    }
     final kingsUpdate = updateData['kings'];
     List<int>? kings;
     if(kingsUpdate != null) kings = List<int>.from(kingsUpdate);
