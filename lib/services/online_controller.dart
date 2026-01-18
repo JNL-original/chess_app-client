@@ -59,7 +59,7 @@ class OnlineGame extends _$OnlineGame with GameBaseNotifier{
       if (data['type'] == 'sync') {
         state = GameState.fromMap(data['data']);
         final readyList = data['ready'];
-        if(readyList != null){
+        if(readyList != null && state.status == GameStatus.lobby){
           List<bool?> aliveList = state.alive;
           for( int i = 0; i < 4; i ++){
               aliveList[i] = readyList[i.toString()];//если null то пустое место
