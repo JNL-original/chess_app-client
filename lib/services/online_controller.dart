@@ -157,7 +157,7 @@ class OnlineGame extends _$OnlineGame with GameBaseNotifier{
     if(readyList != null){
       List<bool?> aliveList = state.alive;
       for( int i = 0; i < 4; i ++){
-        aliveList[i] = readyList[i];//если null то пустое место
+        aliveList[i] = readyList[i.toString()];//если null то пустое место
       }
       OnlineConfig config = state.config as OnlineConfig;
       final colorsHEX = data['colors'];
